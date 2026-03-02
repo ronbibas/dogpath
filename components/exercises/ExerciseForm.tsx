@@ -17,6 +17,12 @@ interface ExerciseFormProps {
 
 const MAX_VIDEO_BYTES = 100 * 1024 * 1024; // 100MB
 
+function getErrorMessage(err: unknown, fallback: string): string {
+  if (err instanceof Error) return err.message;
+  if (err && typeof err === 'object' && 'message' in err) return String((err as { message: unknown }).message);
+  return fallback;
+}
+
 function isVideoUrl(url: string) {
   return /youtube\.com|youtu\.be|tiktok\.com/i.test(url);
 }
@@ -133,7 +139,8 @@ export function ExerciseForm({ exercise }: ExerciseFormProps) {
 
       router.push('/dashboard/exercises');
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'אירעה שגיאה. אנא נסה שנית.';
+      console.error('Error saving exercise:', err);
+      const message = getErrorMessage(err, 'אירעה שגיאה. אנא נסה שנית.');
       setSubmitError(message);
     } finally {
       setIsSubmitting(false);

@@ -30,7 +30,11 @@ export default function ProgramBuilderPage() {
   const titleInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if (authLoading || !user) return;
+    if (authLoading) return;
+    if (!user) {
+      setLoading(false);
+      return;
+    }
 
     const fetchProgram = async () => {
       try {
@@ -60,7 +64,8 @@ export default function ProgramBuilderPage() {
           .order('order_index');
 
         setStages((stagesData ?? []) as unknown as ProgramStageWithExercise[]);
-      } catch {
+      } catch (err: unknown) {
+        console.error('Error loading program:', err);
         setError('שגיאה בטעינת התוכנית');
       } finally {
         setLoading(false);
@@ -139,7 +144,10 @@ export default function ProgramBuilderPage() {
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 2000);
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'שגיאה בשמירה');
+      console.error('Error saving program:', err);
+      const msg = err instanceof Error ? err.message :
+        (err && typeof err === 'object' && 'message' in err ? String((err as { message: unknown }).message) : 'שגיאה בשמירה');
+      setError(msg);
     } finally {
       setIsSaving(false);
     }

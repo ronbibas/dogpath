@@ -105,9 +105,96 @@ export interface Database {
         };
         Relationships: [];
       };
+      client_programs: {
+        Row: {
+          id: string;
+          client_id: string | null;
+          trainer_id: string;
+          program_id: string;
+          invite_code: string;
+          status: 'pending' | 'active' | 'completed';
+          advancement_mode: 'auto' | 'manual';
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          client_id?: string | null;
+          trainer_id: string;
+          program_id: string;
+          invite_code: string;
+          status?: 'pending' | 'active' | 'completed';
+          advancement_mode?: 'auto' | 'manual';
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          client_id?: string | null;
+          trainer_id?: string;
+          program_id?: string;
+          invite_code?: string;
+          status?: 'pending' | 'active' | 'completed';
+          advancement_mode?: 'auto' | 'manual';
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      stage_progress: {
+        Row: {
+          id: string;
+          client_program_id: string;
+          program_stage_id: string;
+          status: 'locked' | 'active' | 'completed' | 'pending_approval';
+          feedback: 'success' | 'difficult' | 'failed' | null;
+          feedback_note: string | null;
+          feedback_voice_url: string | null;
+          feedback_video_url: string | null;
+          completed_at: string | null;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          client_program_id: string;
+          program_stage_id: string;
+          status?: 'locked' | 'active' | 'completed' | 'pending_approval';
+          feedback?: 'success' | 'difficult' | 'failed' | null;
+          feedback_note?: string | null;
+          feedback_voice_url?: string | null;
+          feedback_video_url?: string | null;
+          completed_at?: string | null;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          client_program_id?: string;
+          program_stage_id?: string;
+          status?: 'locked' | 'active' | 'completed' | 'pending_approval';
+          feedback?: 'success' | 'difficult' | 'failed' | null;
+          feedback_note?: string | null;
+          feedback_voice_url?: string | null;
+          feedback_video_url?: string | null;
+          completed_at?: string | null;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
-    Functions: Record<string, never>;
+    Functions: {
+      get_invite_info: {
+        Args: { code: string };
+        Returns: {
+          id: string;
+          program_title: string;
+          program_description: string | null;
+          trainer_name: string;
+          status: string;
+        } | null;
+      };
+      setup_client_after_join: {
+        Args: { p_invite_code: string; p_client_id: string };
+        Returns: undefined;
+      };
+    };
   };
 }
 
@@ -140,6 +227,30 @@ export interface ProgramStage {
 
 export interface ProgramStageWithExercise extends ProgramStage {
   exercise: Exercise;
+}
+
+export interface ClientProgram {
+  id: string;
+  client_id: string | null;
+  trainer_id: string;
+  program_id: string;
+  invite_code: string;
+  status: 'pending' | 'active' | 'completed';
+  advancement_mode: 'auto' | 'manual';
+  created_at: string;
+}
+
+export interface StageProgress {
+  id: string;
+  client_program_id: string;
+  program_stage_id: string;
+  status: 'locked' | 'active' | 'completed' | 'pending_approval';
+  feedback: 'success' | 'difficult' | 'failed' | null;
+  feedback_note: string | null;
+  feedback_voice_url: string | null;
+  feedback_video_url: string | null;
+  completed_at: string | null;
+  updated_at: string;
 }
 
 export interface Profile {

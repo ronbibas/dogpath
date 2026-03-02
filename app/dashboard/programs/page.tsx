@@ -10,33 +10,45 @@ import { Button } from '@/components/ui/Button';
 
 type ProgramWithCount = Program & { program_stages: { count: number }[] };
 
+function getErrorMessage(err: unknown, fallback: string): string {
+  if (err instanceof Error) return err.message;
+  if (err && typeof err === 'object' && 'message' in err) return String((err as { message: unknown }).message);
+  return fallback;
+}
+
 export default function ProgramsPage() {
   const { user, loading: authLoading } = useAuth();
   const [programs, setPrograms] = useState<ProgramWithCount[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchPrograms = async () => {
-    if (!user) return;
-    setError(null);
-    try {
-      const supabase = createClient();
-      const { data, error: fetchError } = await supabase
-        .from('programs')
-        .select('*, program_stages(count)')
-        .order('created_at', { ascending: false });
-
-      if (fetchError) throw fetchError;
-      setPrograms((data ?? []) as unknown as ProgramWithCount[]);
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'שגיאה בטעינת התוכניות');
-    } finally {
-      setLoading(false);
-    }
-  };
-
   useEffect(() => {
-    if (!authLoading) fetchPrograms();
+    if (authLoading) return;
+    if (!user) {
+      setLoading(false);
+      return;
+    }
+
+    const fetchPrograms = async () => {
+      setError(null);
+      try {
+        const supabase = createClient();
+        const { data, error: fetchError } = await supabase
+          .from('programs')
+          .select('*, program_stages(count)')
+          .order('created_at', { ascending: false });
+
+        if (fetchError) throw fetchError;
+        setPrograms((data ?? []) as unknown as ProgramWithCount[]);
+      } catch (err: unknown) {
+        console.error('Error fetching programs:', err);
+        setError(getErrorMessage(err, 'שגיאה בטעינת התוכניות'));
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchPrograms();
   }, [authLoading, user]);
 
   const handleDelete = async (id: string) => {
@@ -49,7 +61,8 @@ export default function ProgramsPage() {
       if (deleteError) throw deleteError;
       setPrograms((prev) => prev.filter((p) => p.id !== id));
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'שגיאה במחיקת התוכנית');
+      console.error('Error deleting program:', err);
+      setError(getErrorMessage(err, 'שגיאה במחיקת התוכנית'));
     }
   };
 

@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ls -la \"C:\\\\Users\\\\ronbi\\\\dogpath\\\\.claude\\\\worktrees\\\\unruffled-volhard\\\\src\"\" 2>/dev/null || echo \"src directory check \")",
+      "mcp__Claude_Preview__preview_start",
+      "Bash(where npm)",
+      "Bash(command -v npm)"
+    ]
+  }
+}

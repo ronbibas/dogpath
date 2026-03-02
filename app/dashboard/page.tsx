@@ -1,11 +1,76 @@
 'use client';
 
+import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { useAuth } from '@/lib/auth-context';
+import { createClient } from '@/lib/supabase';
+import { Button } from '@/components/ui/Button';
+
+interface ClientProgramWithDetails {
+  id: string;
+  client_id: string | null;
+  trainer_id: string;
+  program_id: string;
+  invite_code: string;
+  status: 'pending' | 'active' | 'completed';
+  advancement_mode: 'auto' | 'manual';
+  created_at: string;
+  client: { full_name: string } | null;
+  program: { title: string } | null;
+}
+
+function getErrorMessage(err: unknown, fallback: string): string {
+  if (err instanceof Error) return err.message;
+  if (err && typeof err === 'object' && 'message' in err) return String((err as { message: unknown }).message);
+  return fallback;
+}
 
 export default function DashboardPage() {
-  const { user, loading } = useAuth();
+  const { user, loading: authLoading } = useAuth();
+  const [clientPrograms, setClientPrograms] = useState<ClientProgramWithDetails[]>([]);
+  const [programCount, setProgramCount] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  if (loading) {
+  useEffect(() => {
+    if (authLoading) return;
+    if (!user) {
+      setLoading(false);
+      return;
+    }
+
+    const fetchDashboardData = async () => {
+      try {
+        const supabase = createClient();
+
+        // Fetch client programs with client profile and program title
+        const { data: cpData, error: cpError } = await supabase
+          .from('client_programs')
+          .select('*, client:profiles!client_id(full_name), program:programs(title)')
+          .order('created_at', { ascending: false });
+
+        if (cpError) throw cpError;
+        setClientPrograms((cpData ?? []) as unknown as ClientProgramWithDetails[]);
+
+        // Fetch program count
+        const { count, error: progError } = await supabase
+          .from('programs')
+          .select('*', { count: 'exact', head: true });
+
+        if (progError) throw progError;
+        setProgramCount(count ?? 0);
+      } catch (err: unknown) {
+        console.error('Error fetching dashboard data:', err);
+        setError(getErrorMessage(err, 'שגיאה בטעינת נתונים'));
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchDashboardData();
+  }, [authLoading, user]);
+
+  if (authLoading || loading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
         <div className="text-center">
@@ -16,6 +81,9 @@ export default function DashboardPage() {
     );
   }
 
+  const activeClients = clientPrograms.filter((cp) => cp.status === 'active');
+  const pendingInvites = clientPrograms.filter((cp) => cp.status === 'pending');
+
   return (
     <div className="max-w-4xl mx-auto">
       {/* Welcome Section */}
@@ -23,50 +91,101 @@ export default function DashboardPage() {
         <h1 className="text-3xl font-bold text-gray-900 mb-2">
           שלום, {user?.profile?.full_name || 'מאלף'}! 🐕
         </h1>
-        <p className="text-gray-600 mb-4">
+        <p className="text-gray-600">
           ברוך הבא ללוח הבקרה של המאלפים
         </p>
-        <div className="inline-flex items-center gap-2 px-4 py-2 bg-amber-50 text-amber-700 rounded-lg text-sm font-medium">
-          <span>מחובר כ:</span>
-          <span className="font-bold">{user?.profile?.role === 'trainer' ? 'מאלף' : 'לקוח'}</span>
-        </div>
       </div>
+
+      {/* Error */}
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+          <p className="text-red-700 text-right">{error}</p>
+        </div>
+      )}
 
       {/* Quick Stats */}
       <div className="grid md:grid-cols-3 gap-6 mb-8">
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 text-right">
           <div className="text-4xl mb-2">👥</div>
-          <div className="text-2xl font-bold text-gray-900">0</div>
+          <div className="text-2xl font-bold text-gray-900">{activeClients.length}</div>
           <div className="text-sm text-gray-600">לקוחות פעילים</div>
         </div>
 
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 text-right">
           <div className="text-4xl mb-2">📋</div>
-          <div className="text-2xl font-bold text-gray-900">0</div>
+          <div className="text-2xl font-bold text-gray-900">{programCount}</div>
           <div className="text-sm text-gray-600">תוכניות אימון</div>
         </div>
 
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <div className="text-4xl mb-2">✅</div>
-          <div className="text-2xl font-bold text-gray-900">0</div>
-          <div className="text-sm text-gray-600">משימות הושלמו</div>
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 text-right">
+          <div className="text-4xl mb-2">⏳</div>
+          <div className="text-2xl font-bold text-gray-900">{pendingInvites.length}</div>
+          <div className="text-sm text-gray-600">הזמנות ממתינות</div>
         </div>
       </div>
 
-      {/* Coming Soon Section */}
-      <div className="bg-gradient-to-l from-amber-500 to-orange-500 rounded-2xl p-8 text-white text-center">
-        <div className="text-5xl mb-4">🚧</div>
-        <h2 className="text-2xl font-bold mb-2">בקרוב...</h2>
-        <p className="text-lg opacity-95">
-          אנחנו עובדים על תכונות מדהימות עבורך!
-        </p>
-        <ul className="mt-6 text-right max-w-md mx-auto space-y-2">
-          <li>✨ ניהול לקוחות מתקדם</li>
-          <li>✨ בניית תוכניות אימון מותאמות אישית</li>
-          <li>✨ מעקב אחר התקדמות בזמן אמת</li>
-          <li>✨ צ׳אט ישירות עם לקוחות</li>
-          <li>✨ דוחות וסטטיסטיקות</li>
-        </ul>
+      {/* Client List */}
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
+        <div className="flex items-center justify-between mb-6">
+          <Link href="/dashboard/invite">
+            <Button variant="primary" size="sm">+ הזמן לקוח</Button>
+          </Link>
+          <h2 className="text-xl font-bold text-gray-900">הלקוחות שלי</h2>
+        </div>
+
+        {clientPrograms.length === 0 ? (
+          <div className="text-center py-12">
+            <div className="text-6xl mb-4">🐾</div>
+            <h3 className="text-lg font-bold text-gray-700 mb-2">עדיין אין לקוחות</h3>
+            <p className="text-gray-500 mb-6">שלח הזמנה ראשונה וההרפתקה מתחילה!</p>
+            <Link href="/dashboard/invite">
+              <Button variant="primary">שלח הזמנה ראשונה 🔗</Button>
+            </Link>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {clientPrograms.map((cp) => (
+              <div
+                key={cp.id}
+                className="flex items-center justify-between p-4 border border-gray-100 rounded-xl hover:border-amber-200 hover:bg-amber-50/30 transition-colors"
+              >
+                {/* Status badge */}
+                <div className="flex items-center gap-2">
+                  {cp.status === 'pending' && (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-gray-100 text-gray-600 text-xs rounded-full font-medium">
+                      ⏳ ממתין
+                    </span>
+                  )}
+                  {cp.status === 'active' && (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-green-100 text-green-700 text-xs rounded-full font-medium">
+                      ✅ פעיל
+                    </span>
+                  )}
+                  {cp.status === 'completed' && (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-blue-100 text-blue-700 text-xs rounded-full font-medium">
+                      🎉 הושלם
+                    </span>
+                  )}
+                </div>
+
+                {/* Client info */}
+                <div className="text-right flex-1 mr-4">
+                  <p className="font-medium text-gray-900">
+                    {cp.status === 'pending'
+                      ? 'ממתין להרשמה ⏳'
+                      : cp.client?.full_name || 'לקוח'}
+                  </p>
+                  <p className="text-sm text-gray-500">
+                    {cp.program?.title || 'תוכנית'}
+                    {cp.advancement_mode === 'manual' && (
+                      <span className="mr-2 text-amber-600">• ידני</span>
+                    )}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

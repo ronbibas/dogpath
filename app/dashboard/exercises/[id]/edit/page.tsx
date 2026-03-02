@@ -19,7 +19,11 @@ export default function EditExercisePage() {
   const exerciseId = params.id as string;
 
   useEffect(() => {
-    if (authLoading || !user) return;
+    if (authLoading) return;
+    if (!user) {
+      setLoading(false);
+      return;
+    }
 
     const fetchExercise = async () => {
       try {
@@ -30,7 +34,13 @@ export default function EditExercisePage() {
           .eq('id', exerciseId)
           .single();
 
-        if (fetchError || !data) {
+        if (fetchError) {
+          console.error('Error fetching exercise:', fetchError);
+          router.push('/dashboard/exercises');
+          return;
+        }
+
+        if (!data) {
           router.push('/dashboard/exercises');
           return;
         }
@@ -44,7 +54,8 @@ export default function EditExercisePage() {
         }
 
         setExercise(exercise);
-      } catch {
+      } catch (err: unknown) {
+        console.error('Error loading exercise:', err);
         setError('לא ניתן לטעון את התרגיל');
       } finally {
         setLoading(false);

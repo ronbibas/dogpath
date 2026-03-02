@@ -8,34 +8,46 @@ import { Exercise } from '@/lib/types';
 import { ExerciseCard } from '@/components/exercises/ExerciseCard';
 import { Button } from '@/components/ui/Button';
 
+function getErrorMessage(err: unknown, fallback: string): string {
+  if (err instanceof Error) return err.message;
+  if (err && typeof err === 'object' && 'message' in err) return String((err as { message: unknown }).message);
+  return fallback;
+}
+
 export default function ExercisesPage() {
   const { user, loading: authLoading } = useAuth();
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchExercises = async () => {
-    if (!user) return;
-    setError(null);
-    try {
-      const supabase = createClient();
-      const { data, error: fetchError } = await supabase
-        .from('exercises')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      if (fetchError) throw fetchError;
-      setExercises((data ?? []) as Exercise[]);
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'שגיאה בטעינת התרגילים';
-      setError(message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   useEffect(() => {
-    if (!authLoading) fetchExercises();
+    if (authLoading) return;
+    if (!user) {
+      setLoading(false);
+      return;
+    }
+
+    const fetchExercises = async () => {
+      setError(null);
+      try {
+        const supabase = createClient();
+        const { data, error: fetchError } = await supabase
+          .from('exercises')
+          .select('*')
+          .order('created_at', { ascending: false });
+
+        if (fetchError) throw fetchError;
+        setExercises((data ?? []) as Exercise[]);
+      } catch (err: unknown) {
+        console.error('Error fetching exercises:', err);
+        const message = getErrorMessage(err, 'שגיאה בטעינת התרגילים');
+        setError(message);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchExercises();
   }, [authLoading, user]);
 
   const handleDelete = async (id: string) => {
@@ -74,7 +86,8 @@ export default function ExercisesPage() {
 
       setExercises((prev) => prev.filter((e) => e.id !== id));
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'שגיאה במחיקת התרגיל';
+      console.error('Error deleting exercise:', err);
+      const message = getErrorMessage(err, 'שגיאה במחיקת התרגיל');
       setError(message);
     }
   };

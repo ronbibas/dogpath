@@ -42,16 +42,16 @@ export default function DashboardLayout({
                   בנק תרגילים
                 </Link>
                 <Link
-                  href="/dashboard/clients"
-                  className="text-gray-700 hover:text-amber-600 font-medium"
-                >
-                  לקוחות
-                </Link>
-                <Link
                   href="/dashboard/programs"
                   className="text-gray-700 hover:text-amber-600 font-medium"
                 >
                   תוכניות אימון
+                </Link>
+                <Link
+                  href="/dashboard/invite"
+                  className="text-gray-700 hover:text-amber-600 font-medium"
+                >
+                  הזמנת לקוח
                 </Link>
               </nav>
 
