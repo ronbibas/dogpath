@@ -88,7 +88,11 @@ export function ExerciseForm({ exercise }: ExerciseFormProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!validate() || !user) return;
+    if (!validate()) return;
+    if (!user) {
+      setSubmitError('יש להתחבר מחדש לפני שמירה');
+      return;
+    }
 
     setIsSubmitting(true);
     setSubmitError(null);

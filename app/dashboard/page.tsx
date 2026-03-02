@@ -19,18 +19,11 @@ interface ClientProgramWithDetails {
   program: { title: string } | null;
 }
 
-function getErrorMessage(err: unknown, fallback: string): string {
-  if (err instanceof Error) return err.message;
-  if (err && typeof err === 'object' && 'message' in err) return String((err as { message: unknown }).message);
-  return fallback;
-}
-
 export default function DashboardPage() {
   const { user, loading: authLoading } = useAuth();
   const [clientPrograms, setClientPrograms] = useState<ClientProgramWithDetails[]>([]);
   const [programCount, setProgramCount] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (authLoading) return;
@@ -40,31 +33,34 @@ export default function DashboardPage() {
     }
 
     const fetchDashboardData = async () => {
-      try {
-        const supabase = createClient();
+      const supabase = createClient();
 
-        // Fetch client programs with client profile and program title
+      // Fetch program count (this table always exists)
+      try {
+        const { count } = await supabase
+          .from('programs')
+          .select('*', { count: 'exact', head: true });
+        setProgramCount(count ?? 0);
+      } catch (err) {
+        console.error('Error fetching program count:', err);
+      }
+
+      // Fetch client programs (table may not exist yet - that's OK)
+      try {
         const { data: cpData, error: cpError } = await supabase
           .from('client_programs')
           .select('*, client:profiles!client_id(full_name), program:programs(title)')
           .order('created_at', { ascending: false });
 
-        if (cpError) throw cpError;
-        setClientPrograms((cpData ?? []) as unknown as ClientProgramWithDetails[]);
-
-        // Fetch program count
-        const { count, error: progError } = await supabase
-          .from('programs')
-          .select('*', { count: 'exact', head: true });
-
-        if (progError) throw progError;
-        setProgramCount(count ?? 0);
-      } catch (err: unknown) {
-        console.error('Error fetching dashboard data:', err);
-        setError(getErrorMessage(err, 'שגיאה בטעינת נתונים'));
-      } finally {
-        setLoading(false);
+        if (!cpError && cpData) {
+          setClientPrograms(cpData as unknown as ClientProgramWithDetails[]);
+        }
+      } catch (err) {
+        console.error('Error fetching client programs (table may not exist yet):', err);
+        // Silently ignore - table might not exist yet
       }
+
+      setLoading(false);
     };
 
     fetchDashboardData();
@@ -95,13 +91,6 @@ export default function DashboardPage() {
           ברוך הבא ללוח הבקרה של המאלפים
         </p>
       </div>
-
-      {/* Error */}
-      {error && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
-          <p className="text-red-700 text-right">{error}</p>
-        </div>
-      )}
 
       {/* Quick Stats */}
       <div className="grid md:grid-cols-3 gap-6 mb-8">
