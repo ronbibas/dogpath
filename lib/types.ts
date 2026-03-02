@@ -22,9 +22,56 @@ export interface Database {
           full_name?: string;
           created_at?: string;
         };
+        Relationships: [];
+      };
+      exercises: {
+        Row: {
+          id: string;
+          trainer_id: string;
+          title: string;
+          description: string;
+          video_url: string | null;
+          video_file_url: string | null;
+          voice_memo_url: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          trainer_id: string;
+          title: string;
+          description: string;
+          video_url?: string | null;
+          video_file_url?: string | null;
+          voice_memo_url?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          trainer_id?: string;
+          title?: string;
+          description?: string;
+          video_url?: string | null;
+          video_file_url?: string | null;
+          voice_memo_url?: string | null;
+          created_at?: string;
+        };
+        Relationships: [];
       };
     };
+    Views: Record<string, never>;
+    Functions: Record<string, never>;
   };
+}
+
+export interface Exercise {
+  id: string;
+  trainer_id: string;
+  title: string;
+  description: string;
+  video_url: string | null;
+  video_file_url: string | null;
+  voice_memo_url: string | null;
+  created_at: string;
 }
 
 export interface Profile {

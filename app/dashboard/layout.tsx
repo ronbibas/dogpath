@@ -36,6 +36,12 @@ export default function DashboardLayout({
                   דף הבית
                 </Link>
                 <Link
+                  href="/dashboard/exercises"
+                  className="text-gray-700 hover:text-amber-600 font-medium"
+                >
+                  בנק תרגילים
+                </Link>
+                <Link
                   href="/dashboard/clients"
                   className="text-gray-700 hover:text-amber-600 font-medium"
                 >
