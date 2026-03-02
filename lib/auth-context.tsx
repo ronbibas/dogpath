@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import type { User } from '@supabase/supabase-js';
 import { createClient } from './supabase';
@@ -12,41 +12,51 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<UserWithProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
-  const supabase = createClient();
+  const supabaseRef = useRef(createClient());
 
   useEffect(() => {
     let mounted = true;
+    const supabase = supabaseRef.current;
 
-    // Get initial session
-    const initAuth = async () => {
+    const loadProfile = async (authUser: User) => {
       try {
-        const {
-          data: { session },
-        } = await supabase.auth.getSession();
+        const { data: profile, error } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', authUser.id)
+          .single();
 
         if (!mounted) return;
 
-        if (session?.user) {
-          await loadUserProfile(session.user);
-        } else {
-          setLoading(false);
-        }
-      } catch (err) {
-        console.error('Auth init error:', err);
+        if (error) throw error;
+
+        setUser({
+          id: authUser.id,
+          email: authUser.email || '',
+          profile: profile as Profile,
+        });
+      } catch (error) {
+        console.error('Error loading profile:', error);
+        if (!mounted) return;
+        setUser({
+          id: authUser.id,
+          email: authUser.email || '',
+          profile: null,
+        });
+      } finally {
         if (mounted) setLoading(false);
       }
     };
 
-    initAuth();
-
-    // Listen for auth changes
+    // Use ONLY onAuthStateChange — it fires INITIAL_SESSION on setup.
+    // Do NOT also call getSession() — that causes the lock conflict.
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (_event, session) => {
       if (!mounted) return;
       try {
         if (session?.user) {
-          await loadUserProfile(session.user);
+          await loadProfile(session.user);
         } else {
           setUser(null);
           setLoading(false);
@@ -57,10 +67,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     });
 
-    // Safety timeout - never stay loading forever
+    // Safety timeout — never stay loading forever
     const timeout = setTimeout(() => {
       if (mounted && loading) {
-        console.warn('Auth loading timeout - forcing load complete');
+        console.warn('Auth loading timeout — forcing load complete');
         setLoading(false);
       }
     }, 5000);
@@ -72,39 +82,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
-  const loadUserProfile = async (authUser: User) => {
-    try {
-      const { data: profile, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', authUser.id)
-        .single();
-
-      if (error) throw error;
-
-      setUser({
-        id: authUser.id,
-        email: authUser.email || '',
-        profile: profile as Profile,
-      });
-    } catch (error) {
-      console.error('Error loading profile:', error);
-      setUser({
-        id: authUser.id,
-        email: authUser.email || '',
-        profile: null,
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({
+    const { error } = await supabaseRef.current.auth.signInWithPassword({
       email,
       password,
     });
-
     if (error) throw error;
   };
 
@@ -114,7 +96,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     fullName: string,
     role: UserRole
   ) => {
-    const { data, error } = await supabase.auth.signUp({
+    const { data, error } = await supabaseRef.current.auth.signUp({
       email,
       password,
       options: {
@@ -126,16 +108,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     });
 
     if (error) throw error;
-
-    // If email confirmation is disabled, the user will be logged in immediately
-    // and the trigger will create the profile
-    if (data.user && data.session) {
-      await loadUserProfile(data.user);
-    }
+    // onAuthStateChange will fire and load the profile automatically
   };
 
   const signOut = async () => {
-    const { error } = await supabase.auth.signOut();
+    const { error } = await supabaseRef.current.auth.signOut();
     if (error) throw error;
     setUser(null);
     router.push('/');
