@@ -41,6 +41,7 @@ export function ExerciseForm({ exercise }: ExerciseFormProps) {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [uploadWarning, setUploadWarning] = useState<string | null>(null);
 
   const videoInputRef = useRef<HTMLInputElement>(null);
 
@@ -63,10 +64,13 @@ export function ExerciseForm({ exercise }: ExerciseFormProps) {
     blob: Blob | File,
     trainerId: string,
     filename: string
-  ): Promise<string> => {
+  ): Promise<string | null> => {
     const path = `${trainerId}/${Date.now()}-${filename}`;
     const { error } = await supabase.storage.from('exercises').upload(path, blob);
-    if (error) throw new Error(`שגיאה בהעלאת קובץ: ${error.message}`);
+    if (error) {
+      console.warn('File upload failed (bucket may not exist):', error.message);
+      return null; // Skip upload — save exercise without file
+    }
     const { data } = supabase.storage.from('exercises').getPublicUrl(path);
     return data.publicUrl;
   };
@@ -96,6 +100,7 @@ export function ExerciseForm({ exercise }: ExerciseFormProps) {
 
     setIsSubmitting(true);
     setSubmitError(null);
+    setUploadWarning(null);
 
     try {
       const supabase = createClient();
@@ -103,13 +108,15 @@ export function ExerciseForm({ exercise }: ExerciseFormProps) {
 
       let videoFileUrl = exercise?.video_file_url ?? null;
       let voiceMemoUrl = exercise?.voice_memo_url ?? null;
+      const skippedUploads: string[] = [];
 
       // Upload new video file if provided
       if (videoFile) {
         if (isEdit && exercise?.video_file_url) {
           await deleteOldFile(supabase, exercise.video_file_url);
         }
-        videoFileUrl = await uploadFile(supabase, videoFile, trainerId, videoFile.name);
+        const result = await uploadFile(supabase, videoFile, trainerId, videoFile.name);
+        if (result) { videoFileUrl = result; } else { skippedUploads.push('סרטון'); }
       }
 
       // Upload new voice recording if provided
@@ -117,7 +124,12 @@ export function ExerciseForm({ exercise }: ExerciseFormProps) {
         if (isEdit && exercise?.voice_memo_url) {
           await deleteOldFile(supabase, exercise.voice_memo_url);
         }
-        voiceMemoUrl = await uploadFile(supabase, voiceBlob, trainerId, 'voice.webm');
+        const result = await uploadFile(supabase, voiceBlob, trainerId, 'voice.webm');
+        if (result) { voiceMemoUrl = result; } else { skippedUploads.push('הקלטה'); }
+      }
+
+      if (skippedUploads.length > 0) {
+        setUploadWarning(`התרגיל נשמר אך העלאת ${skippedUploads.join(' ו')} נכשלה. צור את ה-Storage bucket בשם "exercises" ב-Supabase.`);
       }
 
       const payload = {
@@ -141,7 +153,10 @@ export function ExerciseForm({ exercise }: ExerciseFormProps) {
         if (error) throw error;
       }
 
-      router.push('/dashboard/exercises');
+      if (skippedUploads.length === 0) {
+        router.push('/dashboard/exercises');
+      }
+      // If uploads were skipped, stay on page so user sees the warning
     } catch (err: unknown) {
       console.error('Error saving exercise:', err);
       const message = getErrorMessage(err, 'אירעה שגיאה. אנא נסה שנית.');
@@ -257,6 +272,13 @@ export function ExerciseForm({ exercise }: ExerciseFormProps) {
           onRecordingReady={setVoiceBlob}
         />
       </div>
+
+      {/* Upload warning */}
+      {uploadWarning && (
+        <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+          <p className="text-sm text-amber-700 text-right">⚠️ {uploadWarning}</p>
+        </div>
+      )}
 
       {/* Submit error */}
       {submitError && (
