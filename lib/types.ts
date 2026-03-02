@@ -57,6 +57,54 @@ export interface Database {
         };
         Relationships: [];
       };
+      programs: {
+        Row: {
+          id: string;
+          trainer_id: string;
+          title: string;
+          description: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          trainer_id: string;
+          title: string;
+          description?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          trainer_id?: string;
+          title?: string;
+          description?: string | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      program_stages: {
+        Row: {
+          id: string;
+          program_id: string;
+          exercise_id: string;
+          order_index: number;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          program_id: string;
+          exercise_id: string;
+          order_index: number;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          program_id?: string;
+          exercise_id?: string;
+          order_index?: number;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: Record<string, never>;
@@ -72,6 +120,26 @@ export interface Exercise {
   video_file_url: string | null;
   voice_memo_url: string | null;
   created_at: string;
+}
+
+export interface Program {
+  id: string;
+  trainer_id: string;
+  title: string;
+  description: string | null;
+  created_at: string;
+}
+
+export interface ProgramStage {
+  id: string;
+  program_id: string;
+  exercise_id: string;
+  order_index: number;
+  created_at: string;
+}
+
+export interface ProgramStageWithExercise extends ProgramStage {
+  exercise: Exercise;
 }
 
 export interface Profile {
